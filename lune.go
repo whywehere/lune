@@ -1,16 +1,15 @@
 package lune
 
 import (
-	"log/slog"
 	"net/http"
 )
 
 // HandlerFunc defines the request handler used by lune
-type HandlerFunc func(http.ResponseWriter, *http.Request)
+type HandlerFunc func(*Context)
 
 // Engine implement the interface of ServeHTTP
 type Engine struct {
-	router map[string]HandlerFunc
+	router *router
 }
 
 /*
@@ -19,23 +18,17 @@ type Engine struct {
 也就是说，只要传入任何实现了 ServerHTTP 接口的实例，所有的HTTP请求，就都交给了该实例处理了。
 */
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	routerKey := req.Method + "-" + req.URL.Path
-	if handlerFunc, ok := engine.router[routerKey]; ok {
-		handlerFunc(w, req)
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		slog.Error("404 NOT FOUND : %s", req.URL)
-	}
+	c := newContext(w, req)
+	engine.router.handle(c)
 }
 
 // New the constructor of lune.Engine
 func New() *Engine {
-	return &Engine{router: make(map[string]HandlerFunc)}
+	return &Engine{router: newRouter()}
 }
 
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	routerKey := method + "-" + pattern
-	engine.router[routerKey] = handler
+	engine.router.addRoute(method, pattern, handler)
 }
 
 // GET defines the method to add GET request
